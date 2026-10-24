@@ -17,7 +17,7 @@ header.top{background:rgba(255,255,255,.86);backdrop-filter:blur(14px);-webkit-b
 header.top::after{content:"";display:block;height:3px;background:linear-gradient(90deg,var(--navy),var(--blue) 65%,var(--red))}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px}
 .logo{height:40px;width:auto;display:block}
-.conn{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:.68rem;font-weight:700;color:var(--mut);margin-top:2px}.conn::before{content:"";width:7px;height:7px;border-radius:50%;background:#b8c3d6}.conn.ok{color:#14803f}.conn.ok::before{background:#22a559}.conn.no{color:var(--red)}.conn.no::before{background:var(--red)}
+.conn{cursor:pointer;display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:.68rem;font-weight:700;color:var(--mut);margin-top:2px}.conn::before{content:"";width:7px;height:7px;border-radius:50%;background:#b8c3d6}.conn.ok{color:#14803f}.conn.ok::before{background:#22a559}.conn.no{color:var(--red)}.conn.no::before{background:var(--red)}
 .ttl{text-align:right}.ttl small{display:block;color:var(--mut);font-weight:600;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase}
 h1{margin:0;font-size:1.25rem;font-weight:800;color:var(--navy);letter-spacing:-.01em}
 .tabs{display:flex;gap:4px;margin:22px 0 16px;background:#e4ebf6;padding:4px;border-radius:14px}
@@ -316,14 +316,16 @@ $$('[name=Pengemudi]').forEach(r=>r.onchange=sopir);
 async function api(u,o){
   if(!ready())throw 'Link Apps Script belum diisi. Ganti nilai GAS_URL di bagian script file HTML ini.';
   let r,j;
-  try{r=await fetch(u,o)}catch(e){throw 'Tidak dapat terhubung ke Apps Script (Failed to fetch). Periksa: (1) buka file ini di browser biasa atau hosting (GitHub Pages), bukan di pratinjau; (2) deployment Apps Script berakses "Anyone"; (3) sudah Deploy > Manage deployments > New version. [Halaman dibuka dari: '+(location.protocol==='file:'?'file lokal di perangkat':location.host||'tidak diketahui')+']'}
+  try{r=await fetch(u,o)}catch(e){
+    let reach=true;try{await fetch(GAS_URL+'?action=ping',{mode:'no-cors'})}catch(x){reach=false}
+    throw (reach?'Server Google terjangkau, tetapi jawabannya tidak bisa dibaca halaman ini. Penyebab tersering: alamat /exec di GAS_URL bukan deployment yang aktif (misalnya setelah memilih "New deployment"), akses deployment belum "Anyone", atau skrip error. Ketuk indikator koneksi di header untuk melihat jawaban asli server.':'Perangkat tidak bisa menjangkau script.google.com. Periksa internet, VPN, ad-blocker, atau jaringan yang memblokir Google.')+' [Halaman dibuka dari: '+(location.protocol==='file:'?'file lokal di perangkat':location.host||'tidak diketahui')+']'}
   try{j=await r.json()}catch(e){throw 'Respons server bukan JSON. Kemungkinan skrip Apps Script error atau akses deployment belum "Anyone".'}
   if(!j.ok)throw j.msg;return j;
 }
 async function load(){
   const c=$('#conn');
-  try{V=(await api(GAS_URL+'?action=vehicles')).data;c.className='conn ok';c.textContent='Terhubung ke database GA';c.title=''}
-  catch(e){V=DEMO;c.className='conn no';c.textContent='Tidak terhubung ke server';c.title=String(e.message||e)}
+  try{V=(await api(GAS_URL+'?action=vehicles')).data||[];c.className='conn ok';c.textContent='Terhubung ke database GA';c.title=''}
+  catch(e){V=DEMO;c.className='conn no';c.textContent='Tidak terhubung · ketuk untuk tes';c.title=String(e.message||e)}
   $('#veh').innerHTML='<option value="">Pilih kendaraan</option>'+V.map(v=>{const ok=v.Status==='Tersedia';
     return `<option value="${esc(v['Plat Nomor'])}" ${ok?'':'disabled'}>${esc(v['Plat Nomor'])} – ${esc(v['Nama Kendaraan'])}${ok?'':' ('+esc(v.Status)+')'}</option>`}).join('');
 }
@@ -346,7 +348,7 @@ async function showTicket(id){
 
 const data=f=>Object.fromEntries(new FormData(f));
 const cond=f=>{const bad=$$(`#${f.id} .chk input:not(:checked)`).map(i=>i.value);return bad.length?'Bermasalah: '+bad.join(', '):'Semua baik'};
-const send=async d=>{try{return await api(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(d)})}catch(e){if(/terhubung|bukan JSON/.test(String(e)))throw e+' Cek sheet Penggunaan_Kendaraan sebelum mengirim ulang, siapa tahu data sudah tercatat.';throw e}};
+const send=async d=>{try{return await api(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(d)})}catch(e){if(/terjangkau|menjangkau|bukan JSON/.test(String(e)))throw e+' Cek sheet Penggunaan_Kendaraan sebelum mengirim ulang, siapa tahu data sudah tercatat.';throw e}};
 
 function wire(id,build,done){
   const f=$('#'+id);
@@ -415,6 +417,7 @@ async function loadEmp(){
   E.forEach(e=>{const o=document.createElement('option');o.value=EL(e);L.appendChild(o)});
 }
 $('#emp').oninput=ev=>fillEmp(E.find(x=>EL(x)===ev.target.value)||null);
+$('#conn').onclick=()=>window.open(GAS_URL+'?action=tickets','_blank');
 loadEmp();load();loadT();
 </script>
 </body>
